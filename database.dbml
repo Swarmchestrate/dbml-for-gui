@@ -1,0 +1,291 @@
+Enum instance_type_enum {
+  General
+  Optimised_CPU
+  Optimised_RAM
+  Optimised_Storage
+  Optimised_GPU
+}
+
+Enum energy_type_enum {
+  Green
+  Brown
+  Mix
+}
+
+Enum power_type_enum {
+  Mains
+  Battery
+}
+Enum arch_enum {
+  x86
+  ARM
+}
+
+Enum resource_type_enum {
+  Cloud
+  Edge
+}
+
+Enum provider_type_enum {
+  Public
+  Private
+  Hybrid
+}
+
+Enum pref_resource_type_enum {
+  Cloud
+  Edge
+}
+
+Enum volume_type_enum {
+  HostPath
+  EmptyVol
+  Exists
+}
+
+Enum port_type_enum {
+  NodePort
+  HostPort
+  ContainerPort
+  ClusterIP
+}
+
+Enum pref_provider_type_enum {
+  Public
+  Private
+}
+Enum trust_level_enum {
+  Low
+  Medium
+  High
+  Critical
+}
+
+Enum restart_policy_enum {
+  Always
+  OnFailure
+  Never
+}
+
+Enum protocol_enum {
+  TCP
+  UDP
+}
+
+//// ===================== CORE TABLES =====================
+
+Table application {
+  // Metadata
+  application_id int [pk, not null]
+  name varchar(255) [not null]
+  author varchar(255)
+  creation_date timestamp
+  version varchar(50)
+  classification varchar(255)
+  created_at timestamp
+  updated_at timestamp
+
+  // Deployment
+  container_image varchar(500) [not null]
+  commands text[]
+  arguments text[]
+
+  // Resource/QoS requirements
+  min_cpu int
+  min_memory_gb int
+  max_cpu int
+  max_memory_gb int
+  instance_type instance_type_enum
+  num_cpu int
+  mem_ram text
+  num_gpu int
+  disk_size text
+  network_bandwidth text
+  num_instances int
+  energy_type energy_type_enum
+  max_price numeric
+  pref_capacity_provider varchar(255)
+  pref_resource_type pref_resource_type_enum
+  pref_provider_type pref_provider_type_enum
+  minimise_power_usage bool
+  energy_budget numeric
+  minimise_cost bool
+  cost_budget numeric
+  trust_level trust_level_enum
+  response_time_ms numeric
+  requests_per_sec numeric
+  iops numeric
+  io_throughput_bps numeric
+  net_throughput_bps numeric
+  database_writes numeric
+  location_id int
+  behaviour_id int
+}
+
+Table capacity {
+  capacity_id int [pk, not null]
+  created_at timestamp
+  updated_at timestamp
+  description text
+
+  resource_provider varchar(255)
+  capacity_provider varchar(255)
+  resource_type resource_type_enum
+  resource_provider_type provider_type_enum
+
+  energy_type energy_type_enum
+  powered_type power_type_enum
+  mobility bool
+  trust text
+  access_credentials text
+  access_endpoints text
+  bandwidth_mbps numeric
+  connectivity_type connectivity_type_enum
+  network_stability text
+  network_access network_access_enum
+
+  accessible_sensors text[]
+  security_ports text[]
+
+  locality_id int
+  resource_quota_id int
+  energy_consumption_id int
+  price_id int
+}
+
+Table locality {
+  locality_id int [pk, not null]
+  continent continent_enum
+  country text
+  city text
+  gps_location geometry
+}
+
+Table application_behaviour {
+  behaviour_id int [pk, not null]
+  kind text
+  replicas int
+  restart_policy restart_policy_enum
+  cron_schedule text
+  json_k8s_patch jsonb
+}
+
+Table application_environment_var {
+  id int [pk, not null]
+  application_id int
+  name text
+  value text
+}
+
+Table application_colocate {
+  id int [pk, not null]
+  application_id int
+  target text
+  json_k8s_extra jsonb
+}
+
+Table application_volume {
+  id int [pk, not null]
+  application_id int
+  volume_type volume_type_enum
+  volume_path text
+  mount_path text
+  target text
+  json_k8s_extra jsonb
+}
+
+Table application_security_rule {
+  id int [pk, not null]
+  application_id int
+  name text
+  protocol protocol_enum
+  port int
+  targetPort int
+  port_type port_type_enum
+  cluster_ip text
+}
+
+Table application_pref_resource_provider {
+  id int [pk, not null]
+  application_id int
+  provider_name text
+  weight numeric
+}
+
+
+//// ===================== CAPACITY COLLECTION TABLES =====================
+
+
+Table capacity_resource_quota {
+  resource_quota_id int [pk, not null]
+  cpu int
+  ram_gb int
+  storage_gb int
+}
+
+Table capacity_energy_consumption {
+  energy_consumption_id int [pk, not null]
+  kwh_per_cpu int
+  kwh_per_gb_ram int
+  kwh_per_gb_storage int
+}
+
+Table capacity_instance_type {
+  id int [pk, not null]
+  capacity_id int
+  instance_type_uuid int
+  instance_type instance_type_enum
+  cpu int
+  ram_gb int
+  storage_gb int
+  architecture arch_enum
+  energy_consumption_kwh int
+  price_per_hr numeric
+  quota int
+}
+
+Table capacity_price {
+  price_id int [pk, not null]
+  cpu_price_per_hr numeric
+  gb_ram_price_per_hr numeric
+  gb_storage_price_per_hr numeric
+}
+
+Table capacity_operating_system {
+  id int [pk, not null]
+  capacity_id int
+  os_name text
+  os_uuid text
+  architecture arch_enum
+}
+
+Table column_metadata {
+  table_name text
+  column_name text
+  title text
+  category text
+  description text
+  "order" int
+
+  Indexes {
+    (table_name, column_name) [pk]
+  }
+}
+
+//// ===================== RELATIONSHIPS =====================
+
+Ref: application.behaviour_id - application_behaviour.behaviour_id
+Ref: application.location_id - locality.locality_id
+Ref: capacity.locality_id - locality.locality_id
+Ref: capacity.resource_quota_id - capacity_resource_quota.resource_quota_id
+Ref: capacity.energy_consumption_id - capacity_energy_consumption.energy_consumption_id
+Ref: capacity.price_id - capacity_price.price_id
+
+Ref: application_environment_var.application_id > application.application_id
+Ref: application_colocate.application_id > application.application_id
+Ref: application_volume.application_id > application.application_id
+Ref: application_security_rule.application_id > application.application_id
+Ref: application_pref_resource_provider.application_id > application.application_id
+
+Ref: capacity_instance_type.capacity_id > capacity.capacity_id
+Ref: capacity_operating_system.capacity_id > capacity.capacity_id
