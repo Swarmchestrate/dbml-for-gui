@@ -72,61 +72,102 @@ Enum protocol_enum {
   UDP
 }
 
+Enum connectivity_type_enum {
+  Wired
+  Wifi
+  4G
+  5G
+}
+
+Enum network_access_enum {
+  Public
+  Private
+  Community
+}
+
+Enum continent_enum {
+  Africa
+  Asia
+  Europe
+  "North America"
+  "South America"
+  Oceania
+  Antarctica
+}
+
 //// ===================== CORE TABLES =====================
 
 Table application {
   // Metadata
   application_id int [pk, not null]
   name varchar(255) [not null]
+  description varchar(255)
   author varchar(255)
   creation_date timestamp
   version varchar(50)
   classification varchar(255)
-  created_at timestamp
-  updated_at timestamp
-
-  // Deployment
-  container_image varchar(500) [not null]
-  commands text[]
-  arguments text[]
-
-  // Resource/QoS requirements
-  min_cpu int
-  min_memory_gb int
-  max_cpu int
-  max_memory_gb int
-  instance_type instance_type_enum
-  num_cpu int
-  mem_ram text
-  num_gpu int
-  disk_size text
-  network_bandwidth text
-  num_instances int
-  energy_type energy_type_enum
-  max_price numeric
-  pref_capacity_provider varchar(255)
-  pref_resource_type pref_resource_type_enum
-  pref_provider_type pref_provider_type_enum
+  // QoS[ Goals]
   minimise_power_usage bool
   energy_budget numeric
   minimise_cost bool
   cost_budget numeric
   trust_level trust_level_enum
-  response_time_ms numeric
+  // response_time_ms numeric
   requests_per_sec numeric
   iops numeric
   io_throughput_bps numeric
   net_throughput_bps numeric
   database_writes numeric
-  location_id int
-  behaviour_id int
-}
-
-Table capacity {
-  capacity_id int [pk, not null]
   created_at timestamp
   updated_at timestamp
+}
+
+Table application_microservice {
+  id int [pk, not null]
+  name varchar(255) [not null]
+  application_id int
+
+  // Deployment/Configuration
+  container_image varchar(500) [not null]
+  commands text[]
+  arguments text[]
+  behaviour_id int [unique]
+  location_id int [unique]
+
+  // Resource Requirements
+  min_cpu int
+  max_cpu int
+  min_memory_gb int
+  max_memory_gb int
+  min_gpu int
+  max_gpu int
+  min_disk_size int
+  max_disk_size int
+  min_network_bandwidth_mbps int
+  max_network_bandwidth_mbps int
+  min_response_time_ms numeric
+  max_response_time_ms numeric
+  // num_cpu int
+  // mem_ram text
+  num_instances int
+  instance_type instance_type_enum
+  // num_gpu int
+  // disk_size text
+  // network_bandwidth text
+  energy_type energy_type_enum
+  max_price numeric
+  pref_capacity_provider varchar(255)
+  pref_resource_type pref_resource_type_enum
+  pref_provider_type pref_provider_type_enum
+}
+
+// Categorise by following capacity.yaml
+Table capacity {
+  capacity_id int [pk, not null]
+  name varchar(255)
   description text
+  created_at timestamp
+  updated_at timestamp
 
   resource_provider varchar(255)
   capacity_provider varchar(255)
@@ -140,6 +181,8 @@ Table capacity {
   access_credentials text
   access_endpoints text
   bandwidth_mbps numeric
+  min_bandwidth_mbps numeric
+  max_bandwidth_mbps numeric
   connectivity_type connectivity_type_enum
   network_stability text
   network_access network_access_enum
@@ -147,68 +190,68 @@ Table capacity {
   accessible_sensors text[]
   security_ports text[]
 
-  locality_id int
-  resource_quota_id int
-  energy_consumption_id int
-  price_id int
+  locality_id int [unique]
+  resource_quota_id int [unique]
+  energy_consumption_id int [unique]
+  price_id int [unique]
 }
 
 Table locality {
   locality_id int [pk, not null]
   continent continent_enum
-  country text
-  city text
+  country varchar(255)
+  city varchar(255)
   gps_location geometry
 }
 
 Table application_behaviour {
   behaviour_id int [pk, not null]
-  kind text
+  kind varchar(255)
   replicas int
   restart_policy restart_policy_enum
-  cron_schedule text
+  cron_schedule varchar(255)
   json_k8s_patch jsonb
 }
 
 Table application_environment_var {
   id int [pk, not null]
-  application_id int
-  name text
+  application_microservice_id int
+  name varchar(255)
   value text
 }
 
 Table application_colocate {
   id int [pk, not null]
-  application_id int
-  target text
+  application_microservice_id int
+  target varchar(255)
   json_k8s_extra jsonb
 }
 
 Table application_volume {
   id int [pk, not null]
-  application_id int
+  application_microservice_id int
   volume_type volume_type_enum
-  volume_path text
-  mount_path text
-  target text
+  volume_path varchar(255)
+  mount_path varchar(255)
+  target varchar(255)
   json_k8s_extra jsonb
 }
 
 Table application_security_rule {
   id int [pk, not null]
-  application_id int
-  name text
+  application_microservice_id int
+  name varchar(255)
   protocol protocol_enum
   port int
   targetPort int
   port_type port_type_enum
-  cluster_ip text
+  cluster_ip varchar(255)
 }
 
 Table application_pref_resource_provider {
   id int [pk, not null]
-  application_id int
-  provider_name text
+  application_microservice_id int
+  provider_name varchar(255)
   weight numeric
 }
 
@@ -254,16 +297,16 @@ Table capacity_price {
 Table capacity_operating_system {
   id int [pk, not null]
   capacity_id int
-  os_name text
-  os_uuid text
+  os_name varchar(255)
+  os_uuid varchar(255)
   architecture arch_enum
 }
 
 Table column_metadata {
   table_name text
   column_name text
-  title text
-  category text
+  title varchar(255)
+  category varchar(255)
   description text
   "order" int
 
@@ -274,18 +317,19 @@ Table column_metadata {
 
 //// ===================== RELATIONSHIPS =====================
 
-Ref: application.behaviour_id - application_behaviour.behaviour_id
-Ref: application.location_id - locality.locality_id
-Ref: capacity.locality_id - locality.locality_id
-Ref: capacity.resource_quota_id - capacity_resource_quota.resource_quota_id
-Ref: capacity.energy_consumption_id - capacity_energy_consumption.energy_consumption_id
-Ref: capacity.price_id - capacity_price.price_id
+Ref: application_behaviour.behaviour_id - application_microservice.behaviour_id
+Ref: locality.locality_id - application_microservice.location_id
+Ref: locality.locality_id - capacity.locality_id
+Ref: capacity_resource_quota.resource_quota_id - capacity.resource_quota_id
+Ref: capacity_energy_consumption.energy_consumption_id - capacity.energy_consumption_id
+Ref: capacity_price.price_id - capacity.price_id
 
-Ref: application_environment_var.application_id > application.application_id
-Ref: application_colocate.application_id > application.application_id
-Ref: application_volume.application_id > application.application_id
-Ref: application_security_rule.application_id > application.application_id
-Ref: application_pref_resource_provider.application_id > application.application_id
+Ref: application_environment_var.application_microservice_id > application_microservice.id
+Ref: application_colocate.application_microservice_id > application_microservice.id
+Ref: application_volume.application_microservice_id > application_microservice.id
+Ref: application_security_rule.application_microservice_id > application_microservice.id
+Ref: application_pref_resource_provider.application_microservice_id > application_microservice.id
+Ref: application_microservice.application_id > application.application_id
 
 Ref: capacity_instance_type.capacity_id > capacity.capacity_id
 Ref: capacity_operating_system.capacity_id > capacity.capacity_id
